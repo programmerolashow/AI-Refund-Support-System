@@ -31,6 +31,8 @@ vi.mock('../database/client', () => ({
 }));
 
 describe('Refund API Routes (/api/refunds)', () => {
+  const ADMIN_KEY = 'admin-secret-key-123';
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -1,5 +1,7 @@
 import { HealthCheckResponse, RefundSubmissionRequest, RefundResponse } from '../types';
 
+const ADMIN_KEY = 'admin-secret-key-123';
+
 export async function fetchHealth(): Promise<HealthCheckResponse> {
   const res = await fetch('/api/health');
   if (!res.ok) {
@@ -29,15 +31,28 @@ export async function submitRefundRequest(payload: RefundSubmissionRequest): Pro
 }
 
 export async function fetchRefunds(): Promise<any[]> {
-  const res = await fetch('/api/refunds');
+  const res = await fetch('/api/refunds', {
+    headers: {
+      'Authorization': `Bearer ${ADMIN_KEY}`,
+    },
+  });
+
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('Unauthorized admin access. Invalid or missing Admin API Key.');
+    }
     throw new Error('Failed to fetch refund requests.');
   }
   return res.json();
 }
 
 export async function fetchRefundById(id: string): Promise<any> {
-  const res = await fetch(`/api/refunds/${id}`);
+  const res = await fetch(`/api/refunds/${id}`, {
+    headers: {
+      'Authorization': `Bearer ${ADMIN_KEY}`,
+    },
+  });
+
   if (!res.ok) {
     throw new Error('Failed to fetch refund details.');
   }

@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import healthRoutes from './routes/health.routes.js';
 import refundRoutes from './routes/refund.routes.js';
+import customerRoutes from './routes/customer.routes.js';
+import orderRoutes from './routes/order.routes.js';
 import { errorHandler } from './middleware/error.middleware.js';
 
 dotenv.config();
@@ -16,6 +18,8 @@ app.use(express.json());
 // Routes
 app.use('/api', healthRoutes);
 app.use('/api', refundRoutes);
+app.use('/api', customerRoutes);
+app.use('/api', orderRoutes);
 
 // Error Middleware
 app.use(errorHandler);

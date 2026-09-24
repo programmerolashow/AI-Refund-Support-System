@@ -1,0 +1,74 @@
+// Prisma Schema for AI-Powered Customer Support Refund System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id             String          @id @default(uuid())
+  name           String
+  email          String          @unique
+  phone          String?
+  createdAt      DateTime        @default(now())
+  orders         Order[]
+  refundRequests RefundRequest[]
+}
+
+model Order {
+  id             String          @id
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderDate      DateTime
+  totalAmount    Float
+  currency       String          @default("USD")
+  status         String          @default("DELIVERED")
+  items          OrderItem[]
+  refundRequests RefundRequest[]
+  createdAt      DateTime        @default(now())
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productName String
+  quantity    Int
+  price       Float
+  finalSale   Boolean  @default(false)
+  condition   String?  // e.g. "NEW", "DAMAGED", "INCORRECT_ITEM"
+  category    String
+}
+
+model RefundRequest {
+  id             String    @id @default(uuid())
+  customerId     String
+  customer       Customer  @relation(fields: [customerId], references: [id])
+  orderId        String
+  order          Order     @relation(fields: [orderId], references: [id])
+  customerReason String
+  status         String    @default("PENDING") // PENDING, APPROVED, DENIED, ESCALATED
+  decision       String    // APPROVED, DENIED, ESCALATED
+  decisionReason String
+  createdAt      DateTime  @default(now())
+  auditLog       AuditLog?
+}
+
+model AuditLog {
+  id              String        @id @default(uuid())
+  refundRequestId String        @unique
+  refundRequest   RefundRequest @relation(fields: [refundRequestId], references: [id], onDelete: Cascade)
+  customerId      String
+  orderId         String
+  originalRequest String
+  policyChecks    Json          // Structured policy rule evaluations
+  aiAnalysis      Json?         // Structured AI analysis output if available
+  finalDecision   String        // APPROVED, DENIED, ESCALATED
+  auditNotes      String
+  aiFailed        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+}

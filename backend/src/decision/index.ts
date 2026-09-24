@@ -1,2 +1,1 @@
-// Decision Engine module placeholder
-export {};
+export * from './decision.engine.js';

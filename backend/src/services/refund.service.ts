@@ -3,6 +3,8 @@ import { customerRepository } from '../repositories/customer.repository.js';
 import { orderRepository } from '../repositories/order.repository.js';
 import { refundRepository } from '../repositories/refund.repository.js';
 import { policyEngine } from '../policy/policy.engine.js';
+import { aiService } from '../ai/ai.service.js';
+import { decisionEngine } from '../decision/decision.engine.js';
 import { prisma } from '../database/client.js';
 import { CreateRefundInput } from '../schemas/refund.schema.js';
 
@@ -54,30 +56,34 @@ export class RefundService {
       customerReason
     );
 
-    // 5. Determine Decision and Reason
-    const decision = policyResult.recommendedDecision;
-    let decisionReason = '';
+    // 5. Run AI Analysis Layer
+    const aiResponse = await aiService.evaluateRequest(
+      { id: customer.id, name: customer.name, email: customer.email },
+      {
+        id: order.id,
+        orderDate: order.orderDate,
+        totalAmount: order.totalAmount,
+        currency: order.currency,
+        status: order.status,
+        items: order.items,
+      },
+      policyResult,
+      customerReason
+    );
 
-    if (decision === 'APPROVED') {
-      decisionReason = `Order is within the ${policyResult.rules.find((r) => r.rule === 'REFUND_WINDOW')?.details?.limitDays || 30}-day refund period and items qualify for approval.`;
-    } else if (decision === 'DENIED') {
-      decisionReason = policyResult.hardDenialReason || 'Refund request does not meet policy guidelines.';
-    } else {
-      decisionReason =
-        policyResult.rules.find((r) => !r.passed && r.severity === 'REQUIRES_ESCALATION')?.message ||
-        'Request requires manual support team review due to high order value or policy flag.';
-    }
+    // 6. Run Decision Engine (Fuses Policy + AI Signals)
+    const decisionOutput = decisionEngine.evaluateDecision(policyResult, aiResponse);
 
-    // 6. Store Refund Request and Audit Log inside Transaction
+    // 7. Store Refund Request and Audit Log in DB Transaction
     const result = await prisma.$transaction(async (tx) => {
       const refundRequest = await tx.refundRequest.create({
         data: {
           customerId: customer.id,
           orderId: order.id,
           customerReason,
-          status: decision,
-          decision,
-          decisionReason,
+          status: decisionOutput.finalDecision,
+          decision: decisionOutput.finalDecision,
+          decisionReason: decisionOutput.reason,
         },
       });
 
@@ -88,10 +94,14 @@ export class RefundService {
           orderId: order.id,
           originalRequest: customerReason,
           policyChecks: policyResult.rules as any,
-          aiAnalysis: Prisma.JsonNull,
-          finalDecision: decision,
-          auditNotes: decisionReason,
-          aiFailed: false,
+          aiAnalysis: {
+            ...aiResponse.analysis,
+            aiFailed: aiResponse.aiFailed,
+            failureReason: aiResponse.failureReason,
+          } as any,
+          finalDecision: decisionOutput.finalDecision,
+          auditNotes: decisionOutput.auditNotes,
+          aiFailed: aiResponse.aiFailed,
         },
       });
 
@@ -101,17 +111,20 @@ export class RefundService {
         customer,
         order,
         policyResult,
+        aiResponse,
+        decisionOutput,
       };
     });
 
-    // 7. Return Clean Customer-Facing API Response (Hiding raw internal prompts/logs)
+    // 8. Return Clean Response
     return {
       id: result.id,
       customerId: result.customerId,
       orderId: result.orderId,
       status: result.status,
       decision: result.decision,
-      reason: result.decisionReason,
+      reason: result.decisionOutput.reason,
+      explanation: result.decisionOutput.customerExplanation,
       createdAt: result.createdAt,
       customer: {
         id: result.customer.id,
@@ -129,6 +142,12 @@ export class RefundService {
         requiresHumanReview: policyResult.requiresHumanReview,
         checksPassed: policyResult.rules.filter((r) => r.passed).length,
         totalChecks: policyResult.rules.length,
+      },
+      aiSummary: {
+        intent: aiResponse.analysis.intent,
+        risk: aiResponse.analysis.risk,
+        confidence: aiResponse.analysis.confidence,
+        aiFailed: aiResponse.aiFailed,
       },
     };
   }

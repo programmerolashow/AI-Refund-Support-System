@@ -17,6 +17,8 @@ model Customer {
   createdAt      DateTime        @default(now())
   orders         Order[]
   refundRequests RefundRequest[]
+
+  @@index([email])
 }
 
 model Order {
@@ -26,10 +28,13 @@ model Order {
   orderDate      DateTime
   totalAmount    Float
   currency       String          @default("USD")
-  status         String          @default("DELIVERED")
+  status         String          @default("DELIVERED") // DELIVERED, SHIPPED, CANCELLED, RETURNED
   items          OrderItem[]
   refundRequests RefundRequest[]
   createdAt      DateTime        @default(now())
+
+  @@index([customerId])
+  @@index([orderDate])
 }
 
 model OrderItem {
@@ -42,6 +47,8 @@ model OrderItem {
   finalSale   Boolean  @default(false)
   condition   String?  // e.g. "NEW", "DAMAGED", "INCORRECT_ITEM"
   category    String
+
+  @@index([orderId])
 }
 
 model RefundRequest {
@@ -56,6 +63,11 @@ model RefundRequest {
   decisionReason String
   createdAt      DateTime  @default(now())
   auditLog       AuditLog?
+
+  @@index([customerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model AuditLog {
@@ -71,4 +83,7 @@ model AuditLog {
   auditNotes      String
   aiFailed        Boolean       @default(false)
   createdAt       DateTime      @default(now())
+
+  @@index([customerId])
+  @@index([orderId])
 }

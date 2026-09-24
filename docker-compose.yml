@@ -6,16 +6,16 @@ services:
     container_name: refund_postgres
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-refund_db}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: refund_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d refund_db"]
+      interval: 3s
       timeout: 5s
       retries: 5
 
@@ -28,12 +28,12 @@ services:
     ports:
       - "3001:3001"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/refund_db?schema=public}
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/refund_db?schema=public"
       PORT: 3001
       NODE_ENV: production
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-local-development-only-change-me}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-admin-secret-key-123}
     depends_on:
       postgres:
         condition: service_healthy

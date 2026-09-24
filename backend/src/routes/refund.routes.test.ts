@@ -31,8 +31,6 @@ vi.mock('../database/client', () => ({
 }));
 
 describe('Refund API Routes (/api/refunds)', () => {
-  const ADMIN_KEY = 'admin-secret-key-123';
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -164,5 +162,22 @@ describe('Refund API Routes (/api/refunds)', () => {
     expect(res.body.decision).toBe('APPROVED');
     expect(res.body.customer.id).toBe('cust-101');
     expect(res.body.order.id).toBe('ORD-1001');
+  });
+
+  it('POST /api/refunds - Should handle database transaction failure gracefully with 500 error', async () => {
+    vi.mocked(customerRepository.findById).mockResolvedValue(mockCustomer as any);
+    vi.mocked(orderRepository.findById).mockResolvedValue(mockOrder as any);
+
+    // Simulate database connection / transaction exception
+    vi.mocked(prisma.$transaction).mockRejectedValue(new Error('Database Connection Failed'));
+
+    const res = await request(app).post('/api/refunds').send({
+      customerId: 'cust-101',
+      orderId: 'ORD-1001',
+      customerReason: 'Mouse stopped working',
+    });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.message).toBe('Database Connection Failed');
   });
 });

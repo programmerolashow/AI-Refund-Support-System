@@ -94,7 +94,7 @@ describe('PolicyEngine Deterministic Rules Evaluation', () => {
     expect(result.rules.some((r) => r.rule === 'HIGH_VALUE_THRESHOLD' && !r.passed)).toBe(true);
   });
 
-  it('Rule 6: Should APPROVE valid damaged item request within window and under threshold', () => {
+  it('Rule 6a: Should APPROVE valid damaged item request within window and under threshold', () => {
     const validDamagedOrder: OrderContext = {
       id: 'ORD-DAMAGED',
       customerId: 'cust-101',
@@ -111,6 +111,25 @@ describe('PolicyEngine Deterministic Rules Evaluation', () => {
     expect(result.eligible).toBe(true);
     expect(result.requiresHumanReview).toBe(false);
     expect(result.recommendedDecision).toBe('APPROVED');
+  });
+
+  it('Rule 6b: Should APPROVE valid incorrect item request within window', () => {
+    const incorrectItemOrder: OrderContext = {
+      id: 'ORD-INCORRECT',
+      customerId: 'cust-101',
+      orderDate: daysAgo(12),
+      totalAmount: 95,
+      currency: 'USD',
+      status: 'DELIVERED',
+      items: [
+        { productName: 'Shoes Size 10', quantity: 1, price: 95, finalSale: false, condition: 'INCORRECT_ITEM', category: 'Footwear' },
+      ],
+    };
+
+    const result = engine.evaluate(mockCustomer, incorrectItemOrder, 'Received wrong size item');
+    expect(result.eligible).toBe(true);
+    expect(result.recommendedDecision).toBe('APPROVED');
+    expect(result.rules.some((r) => r.rule === 'CONDITION_CHECK' && r.passed)).toBe(true);
   });
 
   it('Rule 7: Should ESCALATE request when conflicting claims are detected', () => {

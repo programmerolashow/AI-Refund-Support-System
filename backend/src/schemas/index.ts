@@ -1,2 +1,1 @@
-// Schemas module placeholder
-export {};
+export * from './refund.schema.js';
